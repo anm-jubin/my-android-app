@@ -34,17 +34,17 @@ jobs:
             find "$SETTINGS_DIR" -mindepth 1 -maxdepth 1 -exec mv -t . {} +
           fi
 
-          # 4. Generate the missing gradlew file automatically
+          # 4. Generate the missing gradlew file automatically (using 8.4 to fix caching bugs)
           if [ ! -f gradlew ]; then
             echo "gradlew not found. Generating Gradle Wrapper..."
-            gradle wrapper --gradle-version 8.2
+            gradle wrapper --gradle-version 8.4
           fi
           
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
         
       - name: Build with Gradle
-        run: ./gradlew assembleDebug
+        run: ./gradlew assembleDebug --no-daemon
         
       - name: Upload APK
         uses: actions/upload-artifact@v4
