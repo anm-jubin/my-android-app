@@ -20,21 +20,37 @@ jobs:
             unzip -o *.zip
           fi
 
-          # 2. Find where the gradlew file is actually located
-          GRADLEW_PATH=$(find . -name "gradlew" -not -path '*/.*' | head -n 1)
-          if [ -z "$GRADLEW_PATH" ]; then
-            echo "Error: gradlew file not found anywhere in the repository!"
+          # 2. Find where the settings file is located to identify the project root
+          SETTINGS_PATH=$(find . -name "settings.gradle.kts" -not -path '*/.*' | head -n 1)
+          if [ -z "$SETTINGS_PATH" ]; then
+            echo "Error: settings.gradle.kts file not found anywhere in the repository!"
             exit 1
           fi
 
           # 3. If it is inside a nested subfolder, move all contents to the root directory
-          GRADLEW_DIR=$(dirname "$GRADLEW_PATH")
-          if [ "$GRADLEW_DIR" != "." ]; then
-            echo "Moving files from nested folder '$GRADLEW_DIR' to root..."
-            find "$GRADLEW_DIR" -mindepth 1 -maxdepth 1 -exec mv -t . {} +
+          SETTINGS_DIR=$(dirname "$SETTINGS_PATH")
+          if [ "$SETTINGS_DIR" != "." ]; then
+            echo "Moving files from nested folder '$SETTINGS_DIR' to root..."
+            find "$SETTINGS_DIR" -mindepth 1 -maxdepth 1 -exec mv -t . {} +
+          fi
+
+          # 4. Generate the missing gradlew file automatically
+          if [ ! -f gradlew ]; then
+            echo "gradlew not found. Generating Gradle Wrapper..."
+            gradle wrapper --gradle-version 8.2
           fi
           
       - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+        
+      - name: Build with Gradle
+        run: ./gradlew assembleDebug
+        
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: app/build/outputs/apk/debug/app-debug.apk      - name: Grant execute permission for gradlew
         run: chmod +x gradlew
         
       - name: Build with Gradle
