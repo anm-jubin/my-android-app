@@ -11,6 +11,28 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
+
+      - name: Unzip and Reorganize Project Files
+        run: |
+          # 1. Unzip if the project was uploaded as a raw zip file
+          if ls *.zip 1> /dev/null 2>&1; then
+            echo "Zip file found. Unzipping..."
+            unzip -o *.zip
+          fi
+
+          # 2. Find where the gradlew file is actually located
+          GRADLEW_PATH=$(find . -name "gradlew" -not -path '*/.*' | head -n 1)
+          if [ -z "$GRADLEW_PATH" ]; then
+            echo "Error: gradlew file not found anywhere in the repository!"
+            exit 1
+          fi
+
+          # 3. If it is inside a nested subfolder, move all contents to the root directory
+          GRADLEW_DIR=$(dirname "$GRADLEW_PATH")
+          if [ "$GRADLEW_DIR" != "." ]; then
+            echo "Moving files from nested folder '$GRADLEW_DIR' to root..."
+            find "$GRADLEW_DIR" -mindepth 1 -maxdepth 1 -exec mv -t . {} +
+          fi
           
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
