@@ -14,36 +14,40 @@ jobs:
 
       - name: Unzip and Reorganize Project Files
         run: |
-          # 1. Unzip if the project was uploaded as a raw zip file
           if ls *.zip 1> /dev/null 2>&1; then
             echo "Zip file found. Unzipping..."
             unzip -o *.zip
           fi
 
-          # 2. Find where the settings file is located to identify the project root
           SETTINGS_PATH=$(find . -name "settings.gradle.kts" -not -path '*/.*' | head -n 1)
           if [ -z "$SETTINGS_PATH" ]; then
-            echo "Error: settings.gradle.kts file not found anywhere in the repository!"
+            echo "Error: settings.gradle.kts file not found anywhere!"
             exit 1
           fi
 
-          # 3. If it is inside a nested subfolder, move all contents to the root directory
           SETTINGS_DIR=$(dirname "$SETTINGS_PATH")
           if [ "$SETTINGS_DIR" != "." ]; then
-            echo "Moving files from nested folder '$SETTINGS_DIR' to root..."
+            echo "Moving files to root..."
             find "$SETTINGS_DIR" -mindepth 1 -maxdepth 1 -exec mv -t . {} +
           fi
 
-          # 4. Generate the missing gradlew file automatically (using 9.3.1 as required by AGP 9.1.1)
           if [ ! -f gradlew ]; then
-            echo "gradlew not found. Generating Gradle Wrapper..."
+            echo "Generating Gradle Wrapper..."
             gradle wrapper --gradle-version 9.3.1
           fi
+          
+      - name: Generate missing debug.keystore
+        run: |
+          # Creates a fake digital signature file so Android lets us build the app
+          keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "C=US, O=Android, CN=Android Debug"
           
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
         
       - name: Build with Gradle
+        env:
+          # Tells Java it is running on a server without a screen to prevent AWT errors
+          JAVA_TOOL_OPTIONS: "-Djava.awt.headless=true"
         run: ./gradlew assembleDebug --no-daemon
         
       - name: Upload APK
