@@ -6,10 +6,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: set up JDK 17
+      - name: set up JDK 21
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
+          java-version: '21'
           distribution: 'temurin'
 
       - name: Unzip and Reorganize Project Files
@@ -34,10 +34,10 @@ jobs:
             find "$SETTINGS_DIR" -mindepth 1 -maxdepth 1 -exec mv -t . {} +
           fi
 
-          # 4. Generate the missing gradlew file automatically (using 8.4 to fix caching bugs)
+          # 4. Generate the missing gradlew file automatically (using 9.3.1 as required by AGP 9.1.1)
           if [ ! -f gradlew ]; then
             echo "gradlew not found. Generating Gradle Wrapper..."
-            gradle wrapper --gradle-version 8.4
+            gradle wrapper --gradle-version 9.3.1
           fi
           
       - name: Grant execute permission for gradlew
