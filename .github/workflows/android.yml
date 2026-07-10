@@ -1,21 +1,54 @@
 name: Build Android APK
 on: [push]
+
+# 1. Give the bot permission to organize your folders and save changes
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+        with:
+          fetch-depth: 2 # Needed so the bot can look at what you just uploaded
+
       - name: set up JDK 21
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
+          
+      - name: Auto-Archive Old Zip Files
+        run: |
+          # Check the files you just uploaded for a new zip
+          NEW_ZIP=$(git diff-tree --no-commit-id --name-only -r HEAD | grep -i '\.zip$' | head -n 1)
+          
+          if [ -n "$NEW_ZIP" ] && [ -f "$NEW_ZIP" ]; then
+            echo "New zip uploaded: $NEW_ZIP"
+            mkdir -p Old_Projects
+            
+            # Move all OTHER zips into the Old_Projects folder
+            for file in *.zip; do
+              if [ "$file" != "$NEW_ZIP" ] && [ "$file" != "*.zip" ]; then
+                echo "Moving old project $file to Old_Projects folder..."
+                mv "$file" Old_Projects/
+              fi
+            done
+            
+            # Save (commit) the organized folders back to your GitHub repository
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add Old_Projects/
+            git add -u
+            # The [skip ci] tag tells GitHub not to run a duplicate build just for moving files
+            git commit -m "Auto-archived older projects [skip ci]" || echo "No older zips to archive."
+            git push || echo "Already up to date."
+          fi
 
       - name: Unzip and Reorganize Project Files
         run: |
           if ls *.zip 1> /dev/null 2>&1; then
-            echo "Zip file found. Unzipping..."
             unzip -o *.zip
           fi
 
@@ -27,18 +60,15 @@ jobs:
 
           SETTINGS_DIR=$(dirname "$SETTINGS_PATH")
           if [ "$SETTINGS_DIR" != "." ]; then
-            echo "Moving files to root..."
             find "$SETTINGS_DIR" -mindepth 1 -maxdepth 1 -exec mv -t . {} +
           fi
 
           if [ ! -f gradlew ]; then
-            echo "Generating Gradle Wrapper..."
             gradle wrapper --gradle-version 9.3.1
           fi
           
       - name: Generate missing debug.keystore
         run: |
-          # Creates a fake digital signature file so Android lets us build the app
           keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "C=US, O=Android, CN=Android Debug"
           
       - name: Grant execute permission for gradlew
@@ -46,7 +76,6 @@ jobs:
         
       - name: Build with Gradle
         env:
-          # Tells Java it is running on a server without a screen to prevent AWT errors
           JAVA_TOOL_OPTIONS: "-Djava.awt.headless=true"
         run: ./gradlew assembleDebug --no-daemon
         
